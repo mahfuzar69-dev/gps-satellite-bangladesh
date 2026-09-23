@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open Source Bangladesh GPS & Satellite Analysis Tool</title>
+    
+    <!-- Leaflet CSS for Open Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 25px;
+        }
+        .input-card {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .input-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .input-field {
+            flex: 1;
+            min-width: 200px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #219150;
+        }
+        .info-card {
+            background: #e8f8f5;
+            border-left: 5px solid #27ae60;
+            padding: 15px 20px;
+            border-radius: 5px;
+            margin-bottom: 25px;
+            display: none;
+        }
+        .info-card h3 {
+            margin-top: 0;
+            color: #1e8449;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .map-box {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .map-title {
+            background: #2c3e50;
+            color: white;
+            padding: 8px 12px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 14px;
+        }
+        .map-container {
+            height: 280px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🛰️ ওপেন সোর্স জিপিএস ও স্যাটেলাইট ভিউয়ার</h1>
+    <div class="subtitle">প্রশাসনিক সীমানা তথ্য ও ১৫ মিটার চতুর্দিকের ক্লিয়ার স্যাটেলাইট ছবি</div>
+
+    <!-- ইনপুট ফর্ম -->
+    <div class="input-card">
+        <div class="input-group">
+            <div class="input-field">
+                <label for="lat">অক্ষাংশ (Latitude):</label>
+                <input type="number" id="lat" step="any" placeholder="যেমন: 23.8103">
+            </div>
+            <div class="input-field">
+                <label for="lon">দ্রাঘিমাংশ (Longitude):</label>
+                <input type="number" id="lon" step="any" placeholder="যেমন: 90.4125">
+            </div>
+        </div>
+        <button onclick="analyzeGPS()">তথ্য ও স্যাটেলাইট ভিউ দেখুন</button>
+    </div>
+
+    <!-- ফলাফল - প্রশাসনিক তথ্য -->
+    <div id="infoCard" class="info-card">
+        <h3>📍 স্থান ও প্রশাসনিক তথ্য</h3>
+        <p><strong>জেলা:</strong> <span id="district">-</span></p>
+        <p><strong>উপজেলা:</strong> <span id="upazila">-</span></p>
+        <p><strong>ইউনিয়ন/পৌরসভা:</strong> <span id="union">-</span></p>
+        <p><strong>গ্রাম/মহল্লা:</strong> <span id="village">-</span></p>
+        <p><strong>নিকটবর্তী ব্রিজ/কালভার্ট/রাস্তা:</strong> <span id="bridge">-</span></p>
+    </div>
+
+    <!-- ফলাফল - স্যাটেলাইট ম্যাপ গ্রিড -->
+    <div id="mapGrid" class="grid-container" style="display: none;">
+        <div class="map-box">
+            <div class="map-title">📍 মূল বিন্দু (Center)</div>
+            <div id="mapCenter" class="map-container"></div>
+        </div>
+        <div class="map-box">
+            <div class="map-title">⬆️ ১৫ মিটার উত্তর (North)</div>
+            <div id="mapNorth" class="map-container"></div>
+        </div>
+        <div class="map-box">
+            <div class="map-title">⬇️ ১৫ মিটার দক্ষিণ (South)</div>
+            <div id="mapSouth" class="map-container"></div>
+        </div>
+        <div class="map-box">
+            <div class="map-title">➡️ ১৫ মিটার পূর্ব (East)</div>
+            <div id="mapEast" class="map-container"></div>
+        </div>
+        <div class="map-box">
+            <div class="map-title">⬅️ ১৫ মিটার পশ্চিম (West)</div>
+            <div id="mapWest" class="map-container"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Leaflet JS for Free Maps Rendering -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    let mapInstances = {};
+
+    function calculateOffsets(lat, lon, meters = 15) {
+        const latChange = meters / 111000.0;
+        const lonChange = meters / (111000.0 * Math.cos(lat * Math.PI / 180));
+        
+        return {
+            Center: [lat, lon],
+            North: [lat + latChange, lon],
+            South: [lat - latChange, lon],
+            East: [lat, lon + lonChange],
+            West: [lat, lon - lonChange]
+        };
+    }
+
+    async function analyzeGPS() {
+        const lat = parseFloat(document.getElementById('lat').value);
+        const lon = parseFloat(document.getElementById('lon').value);
+
+        if (isNaN(lat) || isNaN(lon)) {
+            alert('দয়া করে সঠিক ল্যাটিটিউড এবং লংগিটিউড প্রদান করুন।');
+            return;
+        }
+
+        // ১. OpenStreetMap Reverse Geocoding API (Free & Open Source)
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1&accept-language=bn`);
+            const data = await response.json();
+            
+            const address = data.address || {};
+            document.getElementById('district').innerText = address.state_district || address.district || 'পাওয়া যায়নি';
+            document.getElementById('upazila').innerText = address.subdistrict || address.county || 'পাওয়া যায়নি';
+            document.getElementById('union').innerText = address.town || address.municipality || 'পাওয়া যায়নি';
+            document.getElementById('village').innerText = address.village || address.suburb || address.neighbourhood || 'পাওয়া যায়নি';
+            document.getElementById('bridge').innerText = address.bridge || address.road || 'নিকটবর্তী নিবন্ধিত ব্রিজ পাওয়া যায়নি';
+            
+            document.getElementById('infoCard').style.display = 'block';
+        } catch (e) {
+            console.error('Reverse Geocoding error:', e);
+        }
+
+        // ২. ১৫ মিটারের নতুন স্থানাংক গণনা
+        const points = calculateOffsets(lat, lon, 15);
+        document.getElementById('mapGrid').style.display = 'grid';
+
+        // ৩. স্যাটেলাইট ম্যাপ রেন্ডারিং (Esri World Imagery Open Tiles)
+        const directions = ['Center', 'North', 'South', 'East', 'West'];
+        directions.forEach(dir => {
+            const containerId = 'map' + dir;
+            const coord = points[dir];
+
+            if (mapInstances[containerId]) {
+                mapInstances[containerId].remove();
+            }
+
+            const map = L.map(containerId, {
+                center: coord,
+                zoom: 19, // হাই জুম ক্লিয়ার ভিউ
+                zoomControl: false,
+                dragging: false
+            });
+
+            // Esri HD Satellite Tiles (ওপেন সোর্স ব্যবহারের জন্য সবচেয়ে ভালো)
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19,
+                attribution: 'Esri Satellite'
+            }).addTo(map);
+
+            L.marker(coord).addTo(map);
+            mapInstances[containerId] = map;
+        });
+    }
+</script>
+</body>
+</html>
